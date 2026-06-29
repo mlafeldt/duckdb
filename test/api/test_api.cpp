@@ -3,6 +3,7 @@
 #include "duckdb/parser/parser.hpp"
 #include "duckdb/planner/logical_operator.hpp"
 #include "duckdb/main/connection_manager.hpp"
+#include "duckdb/parser/statement/load_statement.hpp"
 #include "duckdb/parser/statement/select_statement.hpp"
 #include "duckdb/parser/query_node/select_node.hpp"
 
@@ -550,6 +551,19 @@ TEST_CASE("Test connection API", "[api]") {
 TEST_CASE("Test parser tokenize", "[api]") {
 	Parser parser;
 	REQUIRE_NOTHROW(parser.Tokenize("SELECT * FROM table WHERE i+1=3 AND j='hello'; --tokenize example query"));
+}
+
+TEST_CASE("Test force install parser type", "[api]") {
+	Parser parser;
+	parser.ParseQuery("INSTALL tpch; FORCE INSTALL tpch FROM 'build/release/repository';");
+
+	REQUIRE(parser.statements.size() == 2);
+	auto &install_stmt = parser.statements[0]->Cast<LoadStatement>();
+	auto &force_install_stmt = parser.statements[1]->Cast<LoadStatement>();
+
+	REQUIRE(install_stmt.info->load_type == LoadType::INSTALL);
+	REQUIRE(force_install_stmt.info->load_type == LoadType::FORCE_INSTALL);
+	REQUIRE(force_install_stmt.info->repository == "build/release/repository");
 }
 
 TEST_CASE("Test opening an invalid database file", "[api]") {
